@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Funnel Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#f8fafc;}
+    input,select,textarea,button{font-family:inherit;}
+    ::-webkit-scrollbar{width:6px;}
+    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdk0OCKb38GiZ-aXmEe9clS6S-KMueqeY",
+    authDomain: "aces-sales-funnel.firebaseapp.com",
+    projectId: "aces-sales-funnel",
+    storageBucket: "aces-sales-funnel.firebasestorage.app",
+    messagingSenderId: "172062700969",
+    appId: "1:172062700969:web:991f869e2dfdbb4b8100b8"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+</script>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+const TEAM_MEMBERS = ["Tito","Tanechia","Andy","Jamie","Kentrel","Kevin","Hemy","Javier","Derrek"]; 
+const AD_VIEW_PASSCODE = "ChangeMe123!";
+const STAGES = ["Proposal","Negotiating","Won","Lost"];
+const STAGE_COLORS = {Proposal:"#00A8E0",Negotiating:"#F59E0B",Won:"#10B981",Lost:"#EF4444"};
+const ATT_BLUE = "#00A8E0";
+const ATT_DEEP = "#0057B7";
+const addEntry  = (e) => { const {id,...d}=e; return db.collection("entries").doc(id).set(d); };
+const updEntry  = (id,u) => db.collection("entries").doc(id).update(u);
+const delEntry  = (id)   => db.collection("entries").doc(id).delete();
+const Phone = ({size=16,style={}}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.45 2 2 0 0 1 3.59 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.82a16 16 0 0 0 6.29 6.29l.98-.98a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+const Wifi = ({size=16,style={}}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>;
+const Trash2 = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+const Download = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>;
+const LockIcon = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>;
+const FileText = ({size=16}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>;
+function boom(canvas) {
+  if(!canvas)return;
+  const ctx=canvas.getContext("2d");
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;canvas.style.display="block";
+  const COLS=["#00A8E0","#0057B7","#FFD700","#FF6B6B","#51CF66","#CC5DE8","#FF922B","#F06595","#74C0FC"];
+  const P=[];
+  function burst(ox,oy,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,spd=4+Math.random()*15;P.push({x:ox,y:oy,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-Math.random()*8,col:COLS[Math.floor(Math.random()*COLS.length)],sh:["c","r","s"][Math.floor(Math.random()*3)],sz:4+Math.random()*13,life:1,dec:0.005+Math.random()*0.014,rot:Math.random()*Math.PI*2,rs:(Math.random()-.5)*.3,g:.2+Math.random()*.22});}}
+  burst(canvas.width/2,canvas.height*.33,230);
+  const T=[setTimeout(()=>burst(canvas.width*.04,canvas.height*.5,90),220),setTimeout(()=>burst(canvas.width*.96,canvas.height*.5,90),400),setTimeout(()=>burst(canvas.width*.25,canvas.height*.2,80),620),setTimeout(()=>burst(canvas.width*.75,canvas.height*.2,80),800),setTimeout(()=>burst(canvas.width/2,canvas.height*.1,65),1050)];
+  function star(cx,cy,r){ctx.beginPath();for(let i=0;i<5;i++){const a1=(i*4*Math.PI)/5-Math.PI/2,a2=((i*4+2)*Math.PI)/5-Math.PI/2;i===0?ctx.moveTo(cx+r*Math.cos(a1),cy+r*Math.sin(a1)):ctx.lineTo(cx+r*Math.cos(a1),cy+r*Math.sin(a1));ctx.lineTo(cx+r*.42*Math.cos(a2),cy+r*.42*Math.sin(a2));}ctx.closePath();ctx.fill();}
+  const t0=Date.now();
+  (function frame(){ctx.clearRect(0,0,canvas.width,canvas.height);for(let i=P.length-1;i>=0;i--){const p=P[i];p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;p.vx*=.985;p.rot+=p.rs;p.life-=p.dec;if(p.life<=0){P.splice(i,1);continue;}ctx.save();ctx.globalAlpha=Math.min(1,p.life*1.7);ctx.fillStyle=p.col;ctx.translate(p.x,p.y);ctx.rotate(p.rot);if(p.sh==="c"){ctx.beginPath();ctx.arc(0,0,p.sz/2,0,Math.PI*2);ctx.fill();}else if(p.sh==="r"){ctx.fillRect(-p.sz/2,-p.sz/4,p.sz,p.sz/2);}else{star(0,0,p.sz/2);}ctx.restore();}if(Date.now()-t0<3600||P.length>0)requestAnimationFrame(frame);else{canvas.style.display="none";T.forEach(clearTimeout);}})();
+}
+function DonutChart({entries}){
+  const r=useRef(null);
+  useEffect(()=>{
+    if(!r.current)return;
+    const W=260,H=260,R=105,IR=66;
+    const svg=d3.select(r.current).attr("viewBox",`0 0 ${W} ${H}`);
+    svg.selectAll("*").remove();
+    const g=svg.append("g").attr("transform",`translate(${W/2},${H/2})`);
+    const data=STAGES.map(s=>({s,n:entries.filter(e=>e.stage===s).length}));
+    const pie=d3.pie().value(d=>d.n||1e-9).sort(null);
+    const arc=d3.arc().innerRadius(IR).outerRadius(R);
+    g.selectAll("path").data(pie(data)).enter().append("path").attr("d",arc).attr("fill",d=>STAGE_COLORS[d.data.s]).attr("stroke","white").attr("stroke-width",2.5);
+    g.append("text").attr("text-anchor","middle").attr("dy","-.25em").attr("font-size","30").attr("font-weight","bold").attr("fill","#1e293b").text(entries.length);
+    g.append("text").attr("text-anchor","middle").attr("dy","1.3em").attr("font-size","11").attr("fill","#94a3b8").text("total quotes");
+  },[entries]);
+  return <svg ref={r} style={{width:"100%",maxWidth:260}}/>;
+}
+function BarChart({entries}){
+  const r=useRef(null);
+  useEffect(()=>{
+    if(!r.current)return;
+    const data=TEAM_MEMBERS.map(m=>({name:m,n:entries.filter(e=>e.name===m).length})).filter(d=>d.n>0);
+    if(!data.length)return;
+    const mg={t:15,r:15,b:38,l:32},W=420,H=230,iW=W-mg.l-mg.r,iH=H-mg.t-mg.b;
+    const svg=d3.select(r.current).attr("viewBox",`0 0 ${W} ${H}`).attr("width","100%");
+    svg.selectAll("*").remove();
+    const g=svg.append("g").attr("transform",`translate(${mg.l},${mg.t})`);
+    const x=d3.scaleBand().domain(data.map(d=>d.name)).range([0,iW]).padding(.38);
+    const y=d3.scaleLinear().domain([0,d3.max(data,d=>d.n)||1]).range([iH,0]).nice();
+    g.append("g").call(d3.axisLeft(y).ticks(5).tickSize(-iW).tickFormat(()=>"")).call(a=>{a.select(".domain").remove();a.selectAll("line").attr("stroke","#e2e8f0").attr("stroke-dasharray","3,3");});
+    g.append("g").attr("transform",`translate(0,${iH})`).call(d3.axisBottom(x).tickSize(0)).call(a=>a.select(".domain").attr("stroke","#e2e8f0")).selectAll("text").attr("font-size",11).attr("fill","#64748b").attr("dy","1.1em");
+    g.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d3.format("d"))).call(a=>a.select(".domain").remove()).selectAll("text").attr("font-size",11).attr("fill","#64748b");
+    g.selectAll("rect").data(data).enter().append("rect").attr("x",d=>x(d.name)).attr("y",d=>y(d.n)).attr("width",x.bandwidth()).attr("height",d=>iH-y(d.n)).attr("fill",ATT_BLUE).attr("rx",4);
+    g.selectAll(".lbl").data(data).enter().append("text").attr("x",d=>x(d.name)+x.bandwidth()/2).attr("y",d=>y(d.n)-5).attr("text-anchor","middle").attr("font-size",11).attr("font-weight","700").attr("fill","#334155").text(d=>d.n);
+  },[entries]);
+  return <svg ref={r} style={{width:"100%"}}/>;
+}
+const card={background:"white",borderRadius:18,padding:22,boxShadow:"0 1px 8px rgba(0,0,0,0.07)",border:"1px solid #f1f5f9"};
+const inp={width:"100%",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px",fontSize:14,outline:"none",color:"#1e293b",background:"white",fontFamily:"inherit",boxSizing:"border-box"};
+const lbl={display:"block",fontSize:13,fontWeight:600,color:"#374151",marginBottom:6};
+const sum=(arr,f)=>arr.reduce((a,e)=>a+(e[f]||0),0);
+function App(){
+  const [tab,setTab]=useState("entry");
+  const [entries,setEntries]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [fName,setFName]=useState("");const [fQuote,setFQuote]=useState("");
+  const [fWO,setFWO]=useState("");const [fPdf,setFPdf]=useState(null);
+  const [fNotes,setFNotes]=useState("");const [fErr,setFErr]=useState("");
+  const [fOk,setFOk]=useState(false);const [drag,setDrag]=useState(false);
+  const [unlocked,setUnlocked]=useState(false);const [pw,setPw]=useState("");const [pwErr,setPwErr]=useState(false);
+  const cvs=useRef(null);
+  useEffect(()=>{
+    const unsub=db.collection("entries").orderBy("ts","desc").onSnapshot(
+      snap=>{setEntries(snap.docs.map(d=>({id:d.id,...d.data()})));setLoading(false);},
+      err=>{console.error(err);setLoading(false);}
+    );
+    return ()=>unsub();
+  },[]);
+  const readPdf=file=>{
+    if(!file||file.type!=="application/pdf")return;
+    const r=new FileReader();
+    r.onload=ev=>setFPdf({b64:ev.target.result.split(",")[1],name:file.name});
+    r.readAsDataURL(file);
+  };
+  const submit=async()=>{
+    if(!fName||!fQuote.trim()||!fWO.trim()){setFErr("Name, Quote ID, and Work Order are required.");return;}
+    setFErr("");
+    const id=crypto.randomUUID();
+    const e={id,name:fName,quoteId:fQuote.trim(),workOrder:fWO.trim(),pdfB64:fPdf?.b64||null,pdfName:fPdf?.name||null,notes:fNotes,stage:"Proposal",voiceLines:0,dataLines:0,nextSteps:"",ts:Date.now()};
+    try{await addEntry(e);setFName("");setFQuote("");setFWO("");setFPdf(null);setFNotes("");boom(cvs.current);setFOk(true);setTimeout(()=>setFOk(false),5000);}
+    catch(err){setFErr("Save failed. If you uploaded a PDF, it may be too large. Try without it.");}
+  };
+  const upd=useCallback((id,u)=>{updEntry(id,u).catch(console.error);},[]);
+  const del=useCallback(async id=>{
+    if(!confirm("Delete this entry? This cannot be undone."))return;
+    await delEntry(id).catch(console.error);
+  },[]);
+  const unlock=()=>{if(pw===AD_VIEW_PASSCODE){setUnlocked(true);setPwErr(false);setPw("");}else setPwErr(true);};
+  const total=entries.length;
+  const inProg=entries.filter(e=>e.stage==="Proposal"||e.stage==="Negotiating");
+  const wonArr=entries.filter(e=>e.stage==="Won");
+  const lostN=entries.filter(e=>e.stage==="Lost").length;
+  return(
+    <div style={{minHeight:"100vh",background:"#f8fafc"}}>
+      <canvas ref={cvs} style={{position:"fixed",top:0,left:0,zIndex:9999,pointerEvents:"none",display:"none",width:"100vw",height:"100vh"}}/>
+      <header style={{background:`linear-gradient(135deg,${ATT_DEEP} 0%,${ATT_BLUE} 100%)`}}>
+        <div style={{maxWidth:1160,margin:"0 auto",padding:"20px 28px 0"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+            <div>
+              <h1 style={{color:"white",fontSize:22,fontWeight:800,margin:0}}>📊 Sales Funnel Tracker</h1>
+              <p style={{color:"rgba(255,255,255,0.72)",fontSize:13,margin:"4px 0 0"}}>Track your pipeline · Celebrate your wins</p>
+            </div>
+            {!loading&&<div style={{color:"rgba(255,255,255,0.82)",fontSize:13,background:"rgba(255,255,255,0.15)",padding:"6px 16px",borderRadius:20}}>{total} quote{total!==1?"s":""} in pipeline</div>}
+          </div>
+          <div style={{display:"flex",gap:3}}>
+            {[{k:"entry",l:"✏️ New Entry"},{k:"dashboard",l:"📈 Dashboard"},{k:"adview",l:"🔐 AD View"}].map(t=>(
+              <button key={t.k} onClick={()=>setTab(t.k)} style={{padding:"10px 22px",border:"none",cursor:"pointer",fontSize:14,fontWeight:600,borderRadius:"8px 8px 0 0",background:tab===t.k?"white":"transparent",color:tab===t.k?ATT_DEEP:"rgba(255,255,255,0.82)"}}>
+                {t.l}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+      <main style={{maxWidth:1160,margin:"0 auto",padding:"32px 28px 60px"}}>
+        {loading&&<div style={{textAlign:"center",color:"#94a3b8",paddingTop:80,fontSize:15}}>Connecting to database...</div>}
+        {!loading&&tab==="entry"&&(
+          <div style={{maxWidth:520,margin:"0 auto"}}>
+            <div style={{...card,padding:36}}>
+              <h2 style={{fontSize:20,fontWeight:800,color:"#0f172a",margin:"0 0 26px"}}>New Quote Entry</h2>
+              {fOk&&<div style={{marginBottom:18,padding:"12px 16px",background:"#f0fdf4",border:"1px solid #bbf7d0",color:"#166534",borderRadius:12,fontSize:14}}>🎉 Entry saved! Keep crushing it!</div>}
+              {fErr&&<div style={{marginBottom:18,padding:"12px 16px",background:"#fef2f2",border:"1px solid #fecaca",color:"#991b1b",borderRadius:12,fontSize:14}}>{fErr}</div>}
+              <div style={{display:"flex",flexDirection:"column",gap:20}}>
+                <div>
+                  <label style={lbl}>Your Name <span style={{color:"#f87171"}}>*</span></label>
+                  <select value={fName} onChange={e=>setFName(e.target.value)} style={inp}>
+                    <option value="">Select your name...</option>
+                    {TEAM_MEMBERS.map(m=><option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{...lbl,display:"flex",alignItems:"center"}}>
+                    <span>Quote ID <span style={{color:"#f87171"}}>*</span></span>
+                    <a href="https://mst.att.com" target="_blank" rel="noreferrer" style={{marginLeft:10,fontSize:12,color:ATT_BLUE,textDecoration:"underline",fontWeight:400}}>Open MST ↗</a>
+                  </label>
+                  <input type="text" value={fQuote} onChange={e=>setFQuote(e.target.value)} placeholder="e.g. Q-123456" style={inp}/>
+                </div>
+                <div>
+                  <label style={lbl}>Work Order Number <span style={{color:"#f87171"}}>*</span></label>
+                  <input type="text" value={fWO} onChange={e=>setFWO(e.target.value)} placeholder="e.g. WO-789012" style={inp}/>
+                </div>
+                <div>
+                  <label style={lbl}>Customer Bill (PDF) <span style={{color:"#94a3b8",fontWeight:400}}>(optional)</span></label>
+                  <div onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)}
+                    onDrop={e=>{e.preventDefault();setDrag(false);readPdf(e.dataTransfer.files[0]);}}
+                    onClick={()=>document.getElementById("__pdfin__").click()}
+                    style={{border:`2px dashed ${drag?ATT_BLUE:"#cbd5e1"}`,borderRadius:14,padding:"22px 16px",textAlign:"center",cursor:"pointer",background:drag?"#f0f9ff":"#f8fafc"}}>
+                    <input id="__pdfin__" type="file" accept="application/pdf" style={{display:"none"}} onChange={e=>{readPdf(e.target.files?.[0]);e.target.value="";}}/>
+                    {fPdf?(
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontSize:13,color:"#059669"}}>
+                        <FileText size={15}/><span style={{fontWeight:600}}>{fPdf.name}</span>
+                        <button onClick={ev=>{ev.stopPropagation();setFPdf(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",fontSize:17}}>×</button>
+                      </div>
+                    ):(
+                      <div style={{color:"#94a3b8",fontSize:13}}>
+                        <div style={{fontSize:28,marginBottom:6}}>📄</div>
+                        Drop PDF here or <span style={{color:ATT_BLUE,textDecoration:"underline"}}>browse files</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Notes <span style={{color:"#94a3b8",fontWeight:400}}>(optional)</span></label>
+                  <textarea value={fNotes} onChange={e=>setFNotes(e.target.value)} placeholder="Any additional context..." rows={3} style={{...inp,resize:"none",lineHeight:1.55}}/>
+                </div>
+                <button onClick={submit} style={{padding:"14px",borderRadius:12,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${ATT_BLUE},${ATT_DEEP})`,color:"white",fontSize:15,fontWeight:800,boxShadow:"0 4px 18px rgba(0,87,183,0.3)"}}>
+                  🚀 Submit Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {!loading&&tab==="dashboard"&&(
+          <div style={{display:"flex",flexDirection:"column",gap:24}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:16}}>
+              {[{label:"Total Quotes",val:total,color:ATT_BLUE,icon:"📋"},{label:"In Progress",val:inProg.length,color:"#F59E0B",icon:"🔄"},{label:"Won",val:wonArr.length,color:"#10B981",icon:"🏆"},{label:"Lost",val:lostN,color:"#EF4444",icon:"❌"}].map(c=>(
+                <div key={c.label} style={card}>
+                  <div style={{fontSize:26,marginBottom:8}}>{c.icon}</div>
+                  <div style={{fontSize:38,fontWeight:900,color:c.color,lineHeight:1}}>{c.val}</div>
+                  <div style={{fontSize:13,color:"#64748b",marginTop:7}}>{c.label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+              <div style={card}>
+                <h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700,color:"#374151"}}>Pipeline by Stage</h3>
+                {!total?<div style={{textAlign:"center",color:"#94a3b8",padding:"48px 0",fontSize:14}}>Add some entries to see the chart</div>:(
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                    <DonutChart entries={entries}/>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"8px 18px",marginTop:14,justifyContent:"center"}}>
+                      {STAGES.map(s=>(
+                        <div key={s} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#64748b"}}>
+                          <div style={{width:10,height:10,borderRadius:"50%",background:STAGE_COLORS[s]}}/>
+                          {s}: <strong>{entries.filter(e=>e.stage===s).length}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={card}>
+                <h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700,color:"#374151"}}>Quotes per Rep</h3>
+                {!total?<div style={{textAlign:"center",color:"#94a3b8",padding:"48px 0",fontSize:14}}>No data yet</div>:<BarChart entries={entries}/>}
+              </div>
+            </div>
+          </div>
+        )}
+        {!loading&&tab==="adview"&&(
+          !unlocked?(
+            <div style={{maxWidth:300,margin:"64px auto 0",textAlign:"center"}}>
+              <div style={{fontSize:54,marginBottom:10}}>🔐</div>
+              <h2 style={{fontSize:20,fontWeight:800,color:"#0f172a",margin:"0 0 8px"}}>AD View Access</h2>
+              <p style={{color:"#64748b",fontSize:14,lineHeight:1.6,margin:"0 0 26px"}}>Enter your passcode to view the full pipeline.</p>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false);}} onKeyDown={e=>e.key==="Enter"&&unlock()} placeholder="Passcode"
+                  style={{...inp,textAlign:"center",letterSpacing:4,fontSize:16,border:pwErr?"1px solid #fca5a5":"1px solid #e2e8f0",background:pwErr?"#fef2f2":"white"}}/>
+                {pwErr&&<p style={{color:"#ef4444",fontSize:12,margin:0}}>Incorrect passcode.</p>}
+                <button onClick={unlock} style={{padding:"12px",borderRadius:12,border:"none",cursor:"pointer",background:`linear-gradient(135deg,${ATT_BLUE},${ATT_DEEP})`,color:"white",fontSize:15,fontWeight:700}}>Unlock</button>
+              </div>
+            </div>
+          ):(
+            <div>
+              <div style={{display:"flex",justifyContent:"flex-end",marginBottom:20}}>
+                <button onClick={()=>setUnlocked(false)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid #e2e8f0",borderRadius:10,background:"white",cursor:"pointer",fontSize:13,color:"#64748b",fontWeight:500}}>
+                  <LockIcon size={13}/> Lock
+                </button>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}}>
+                {[{label:"Total Pipeline",arr:entries,color:ATT_BLUE,bg:"#eff8ff"},{label:"In Progress",arr:inProg,color:"#F59E0B",bg:"#fffbeb"},{label:"Won",arr:wonArr,color:"#10B981",bg:"#f0fdf4"}].map(c=>(
+                  <div key={c.label} style={{...card,background:c.bg}}>
+                    <div style={{fontWeight:700,color:"#374151",fontSize:14,marginBottom:16}}>{c.label}</div>
+                    <div style={{display:"flex",gap:28}}>
+                      {[{icon:<Phone size={17} style={{color:c.color}}/>,val:sum(c.arr,"voiceLines"),l:"Voice Lines"},{icon:<Wifi size={17} style={{color:c.color}}/>,val:sum(c.arr,"dataLines"),l:"Data Lines"}].map(r=>(
+                        <div key={r.l} style={{display:"flex",alignItems:"center",gap:9}}>
+                          {r.icon}
+                          <div>
+                            <div style={{fontSize:26,fontWeight:900,color:c.color,lineHeight:1}}>{r.val}</div>
+                            <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{r.l}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>
+                {STAGES.map(stage=>{
+                  const col=entries.filter(e=>e.stage===stage);
+                  return(
+                    <div key={stage} style={{display:"flex",flexDirection:"column"}}>
+                      <div style={{borderTop:`4px solid ${STAGE_COLORS[stage]}`,background:`${STAGE_COLORS[stage]}14`,borderRadius:"12px 12px 0 0",padding:"12px 14px"}}>
+                        <div style={{fontWeight:700,color:"#0f172a",fontSize:14}}>{stage}</div>
+                        <div style={{display:"flex",gap:10,marginTop:5,fontSize:11,color:"#64748b"}}>
+                          <span style={{display:"flex",alignItems:"center",gap:3}}><Phone size={10}/>{sum(col,"voiceLines")}</span>
+                          <span style={{display:"flex",alignItems:"center",gap:3}}><Wifi size={10}/>{sum(col,"dataLines")}</span>
+                          <span style={{marginLeft:"auto"}}>{col.length} quote{col.length!==1?"s":""}</span>
+                        </div>
+                      </div>
+                      <div style={{background:"#f1f5f9",borderRadius:"0 0 12px 12px",padding:8,minHeight:80,flexGrow:1,display:"flex",flexDirection:"column",gap:8}}>
+                        {!col.length&&<div style={{textAlign:"center",color:"#cbd5e1",fontSize:12,padding:"18px 0"}}>No entries</div>}
+                        {col.map(e=>(
+                          <div key={e.id} style={{background:"white",borderRadius:12,padding:12,boxShadow:"0 1px 4px rgba(0,0,0,0.05)",border:"1px solid #f1f5f9",display:"flex",flexDirection:"column",gap:9}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <a href={`https://mst.att.com/quote/${e.quoteId}`} target="_blank" rel="noreferrer" style={{fontSize:13,fontWeight:800,color:ATT_BLUE,textDecoration:"underline"}}>{e.quoteId}</a>
+                              <button onClick={()=>del(e.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#e2e8f0",padding:2,display:"flex"}}
+                                onMouseEnter={ev=>ev.currentTarget.style.color="#ef4444"} onMouseLeave={ev=>ev.currentTarget.style.color="#e2e8f0"}>
+                                <Trash2 size={13}/>
+                              </button>
+                            </div>
+                            <div style={{fontSize:11,color:"#64748b",lineHeight:1.7}}>
+                              <div>WO: <span style={{color:"#374151",fontWeight:600}}>{e.workOrder}</span></div>
+                              <div>Rep: <span style={{color:"#374151",fontWeight:600}}>{e.name}</span></div>
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7}}>
+                              {[{f:"voiceLines",icon:<Phone size={9}/>,l:"Voice"},{f:"dataLines",icon:<Wifi size={9}/>,l:"Data"}].map(r=>(
+                                <div key={r.f}>
+                                  <label style={{fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:3,marginBottom:3}}>{r.icon}{r.l}</label>
+                                  <input type="number" min={0} value={e[r.f]||0} onChange={ev=>upd(e.id,{[r.f]:parseInt(ev.target.value)||0})}
+                                    style={{width:"100%",border:"1px solid #e2e8f0",borderRadius:7,padding:"4px 7px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                                </div>
+                              ))}
+                            </div>
+                            <div>
+                              <label style={{fontSize:10,color:"#94a3b8",display:"block",marginBottom:3}}>Stage</label>
+                              <select value={e.stage} onChange={ev=>upd(e.id,{stage:ev.target.value})}
+                                style={{width:"100%",border:"1px solid #e2e8f0",borderRadius:7,padding:"5px 7px",fontSize:12,outline:"none",background:"white"}}>
+                                {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{fontSize:10,color:"#94a3b8",display:"block",marginBottom:3}}>Next Steps</label>
+                              <textarea value={e.nextSteps||""} rows={2} onChange={ev=>upd(e.id,{nextSteps:ev.target.value})} placeholder="Next steps..."
+                                style={{width:"100%",border:"1px solid #e2e8f0",borderRadius:7,padding:"5px 7px",fontSize:11,resize:"none",outline:"none",fontFamily:"inherit",boxSizing:"border-box",lineHeight:1.5}}/>
+                            </div>
+                            {e.pdfB64&&(
+                              <a href={`data:application/pdf;base64,${e.pdfB64}`} download={e.pdfName||"bill.pdf"}
+                                style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:ATT_BLUE,textDecoration:"underline"}}>
+                                <Download size={11}/>{e.pdfName||"Download PDF"}
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        )}
+      </main>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
